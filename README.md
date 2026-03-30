@@ -1,18 +1,21 @@
 # Storynix
 
-Projeto backend em Python usando FastAPI.
+API backend em Python com FastAPI para gerenciamento de posts.
+
+## Stack
+
+- Python 3.13+
+- FastAPI
+- Uvicorn
+- Pydantic
+- Ruff
 
 ## Requisitos
 
 - Python 3.13+
 - Poetry 2+
 
-## Tecnologias
-
-- FastAPI
-- Uvicorn
-
-## Como rodar localmente
+## Como executar localmente
 
 1. Instale as dependencias:
 
@@ -20,43 +23,53 @@ Projeto backend em Python usando FastAPI.
 poetry install
 ```
 
-2. Ative o ambiente virtual do Poetry:
+2. Suba a API com recarregamento automatico:
 
 ```bash
-poetry shell
+poetry run uvicorn main:app --reload
 ```
 
-3. Inicie a aplicacao:
+3. Acesse:
 
-```bash
-uvicorn app.main:app --reload
-```
+- API: [http://127.0.0.1:8000](http://127.0.0.1:8000)
+- Swagger: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+- ReDoc: [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
 
-Se preferir, rode sem entrar no shell:
-
-```bash
-poetry run uvicorn app.main:app --reload
-```
-
-## Estrutura esperada
-
-Como o comando de execucao usa `app.main:app`, espera-se a seguinte estrutura:
+## Estrutura do projeto
 
 ```text
-app/
+Storynix/
   main.py
+  controllers/
+    post.py
+  schemas/
+    post.py
+  views/
+    post.py
 ```
 
-E no `main.py`:
+## Endpoints atuais
 
-```python
-from fastapi import FastAPI
+Base: `/posts`
 
-app = FastAPI()
+- `POST /posts/` cria um post
+- `GET /posts/` lista posts com filtros e paginacao
+- `GET /posts/{framework}` retorna posts por framework
+
+## Modelos
+
+- `PostRequest` (`schemas/post.py`): payload de entrada
+- `PostResponse` (`views/post.py`): payload de saida
+
+## Qualidade de codigo
+
+Rodar lint com Ruff:
+
+```bash
+poetry run ruff check .
 ```
 
-## Proximos passos sugeridos
+## Observacoes
 
-- Definir uma descricao no `pyproject.toml` (`project.description`)
-- Criar endpoints iniciais no `app/main.py`
-- Adicionar testes automatizados
+- Os dados estao em memoria (`fake_db`) para fins de estudo/desenvolvimento.
+- Campo `project.description` em `pyproject.toml` ainda esta vazio e pode ser preenchido.
