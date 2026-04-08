@@ -2,12 +2,12 @@ from typing import Annotated
 
 from fastapi import Query, status, APIRouter, Depends
 
-from schemas.post import PostRequest, UpdatePostRequest
-from security import login_required
-from services.post import PostService
-from views.post import PostResponse
-from models.post import posts
-from database import database
+from src.database import database
+from src.models.post import posts
+from src.schemas.post import PostRequest, UpdatePostRequest
+from src.security import login_required
+from src.services.post import PostService
+from src.views.post import PostResponse
 
 router = APIRouter(prefix="/posts", dependencies=[Depends(login_required)])
 service = PostService()

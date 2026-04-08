@@ -7,16 +7,16 @@ os.environ.setdefault("ENVIRONMENT", "local")
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
-from config import settings
+from src.config import settings
 
 settings.database_url = "sqlite:///tests.db"
 
 
 @pytest_asyncio.fixture
 async def db(request):
-    from database import database, engine, metadata
+    from src.database import database, engine, metadata
 
-    __import__("models.post")
+    __import__("src.models.post")
 
     await database.connect()
     metadata.create_all(engine)
@@ -33,7 +33,7 @@ async def db(request):
 
 @pytest_asyncio.fixture
 async def client(db):
-    from main import app
+    from src.main import app
 
     transport = ASGITransport(app=app)
     headers = {

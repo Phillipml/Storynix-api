@@ -1,18 +1,14 @@
 # Storynix
 
-API backend em Python com FastAPI para gerenciamento de posts e autenticação JWT.
+API em Python com FastAPI: posts (SQLite) e autenticação JWT. O código da aplicação vive no pacote **`src`**; os imports são absolutos (`from src....`).
 
 ## Stack
 
 - Python 3.13+
-- FastAPI
-- Uvicorn
-- SQLAlchemy Core
-- Databases
-- Pydantic / Pydantic Settings
-- PyJWT
-- Ruff
-- Pytest (testes de integração)
+- FastAPI, Uvicorn
+- SQLAlchemy Core, Databases (aiosqlite)
+- Pydantic, Pydantic Settings
+- PyJWT, Ruff, Pytest + HTTPX (integração)
 
 ## Requisitos
 
@@ -21,69 +17,73 @@ API backend em Python com FastAPI para gerenciamento de posts e autenticação J
 
 ## Configuração
 
-1. Copie o exemplo de variáveis de ambiente (na raiz do repositório):
+1. Na raiz do repositório, copie o exemplo de ambiente:
 
 ```bash
 cp .env.example .env
 ```
 
-2. Ajuste `.env` se precisar. Variáveis usadas pela app:
+No Windows (cmd/PowerShell): `copy .env.example .env`
 
-- `DATABASE_URL` — URL do banco (padrão no código: `sqlite:///./blog.db` se não estiver definida).
-- `ENVIRONMENT` — `local` usa `check_same_thread=False` no SQLite; `production` não.
+2. Variáveis relevantes:
 
-O `Settings` em `src/config.py` carrega `.env` da **raiz do projeto** e de **`src/`** (o que existir). Assim você pode rodar o Uvicorn a partir de `src/` ou da raiz sem perder as variáveis.
+| Variável        | Descrição |
+|----------------|-----------|
+| `DATABASE_URL` | URL do banco. Padrão no código: `sqlite:///./blog.db` se ausente. |
+| `ENVIRONMENT`  | `local` (ou qualquer valor ≠ `production`): SQLite com `check_same_thread=False`. `production`: engine sem esse argumento. |
 
-## Como executar localmente
+O `Settings` (`src/config.py`) lê `.env` na **raiz do projeto** e em **`src/`**, na ordem (arquivos inexistentes são ignorados).
 
-1. Instale as dependências:
+## Executar localmente
 
 ```bash
 poetry install
+poetry run uvicorn src.main:app --reload
 ```
 
-2. Entre em `src/` e suba a API (imports relativos ao pacote da app):
-
-```bash
-cd src
-poetry run uvicorn main:app --reload
-```
-
-3. Acesse:
+Execute sempre a partir da **raiz** do repositório (o Python precisa resolver o pacote `src`).
 
 - API: [http://127.0.0.1:8000](http://127.0.0.1:8000)
 - Swagger: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 - ReDoc: [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
 
-O arquivo SQLite `./blog.db` é criado no **diretório de trabalho atual** do processo (em geral `src/` se você subiu o servidor de lá).
+O SQLite padrão (`sqlite:///./blog.db`) cria `blog.db` no **diretório de trabalho atual** (normalmente a raiz do repo).
+
+## Deploy (ex.: Render)
+
+- **Start Command:** `poetry run uvicorn src.main:app --host 0.0.0.0 --port $PORT`  
+  (`$PORT` é variável do Render; em PowerShell local use por exemplo `$env:PORT = 8000` ou passe `--port 8000`.)
+- **Build:** `poetry install --no-interaction --no-ansi` (ou equivalente da sua imagem).
+- Defina **`DATABASE_URL`** (em produção costuma ser Postgres; SQLite em disco efêmero some entre deploys).
+- Defina **`ENVIRONMENT=production`** se quiser o perfil “production” do `database.py`.
+
+Não é necessário `PYTHONPATH=src` se o diretório de trabalho for a raiz do repositório.
 
 ## Banco de dados
 
-- SQLite por padrão (`DATABASE_URL` tipo `sqlite:///./blog.db`).
-- Conexão e metadata em `src/database.py`.
-- Tabelas criadas no startup (`lifespan` em `src/main.py`).
+- Conexão e metadata: `src/database.py`.
+- Tabelas criadas no startup: `lifespan` em `src/main.py`.
 
 ## Testes
 
-Na **raiz** do repositório:
+Na raiz:
 
 ```bash
 poetry run pytest
 ```
 
-O `pyproject.toml` define `pythonpath = ["src"]` para os testes encontrarem os módulos da app. O `tests/conftest.py` configura `DATABASE_URL` para um SQLite de teste.
+Opções úteis: `pytest -q`, `pytest tests/integration/controllers/auth/ -v`.
+
+O `tests/conftest.py` define `DATABASE_URL=sqlite:///tests.db` antes de importar a app; pode surgir `tests.db` na raiz ao rodar os testes (ideal manter fora do Git; o `.gitignore` já cobre `*.db` na raiz).
 
 ## Autenticação
 
-- Login: `POST /auth/login` com JSON `{"user_id": <inteiro>}`.
-- Resposta com `access_token` (JWT).
-- Rotas em `/posts` exigem `Authorization: Bearer <access_token>`.
-- No Postman: **Authorization → Bearer Token** com só o JWT (sem aspas). Login: **Body → raw → JSON** e `Content-Type: application/json`.
-- O claim `sub` do JWT é string (compatível com PyJWT 2.10+); faça login de novo se um token antigo falhar.
+- `POST /auth/login` com `{"user_id": <int>}` → resposta com `access_token` (JWT).
+- Rotas `/posts/*` exigem `Authorization: Bearer <token>`.
+- Postman: **Bearer Token** só com o JWT; login em **Body → raw → JSON**.
+- Claim `sub` como string (PyJWT 2.10+). JWT em `src/security.py`.
 
-Lógica JWT em `src/security.py`.
-
-## Estrutura do projeto
+## Estrutura
 
 ```text
 Storynix/
@@ -91,60 +91,44 @@ Storynix/
   .env.example
   tests/
     conftest.py
-    integration/
-      controllers/
-        auth/
-        post/
+    integration/controllers/auth|post/
   src/
+    __init__.py
     main.py
     config.py
     database.py
     security.py
-    controllers/
-      auth.py
-      post.py
+    exceptions.py
+    controllers/   # pacote ( __init__.py )
     services/
-      post.py
     models/
-      post.py
     schemas/
-      auth.py
-      post.py
     views/
-      auth.py
-      post.py
 ```
 
 ## Endpoints
 
-### Auth
+### Auth — `/auth`
 
-Base: `/auth`
+- `POST /auth/login` → JWT (`access_token`)
 
-- `POST /auth/login` — retorna JWT (`access_token`)
+### Posts — `/posts` (Bearer obrigatório)
 
-### Posts (protegidas)
-
-Base: `/posts` (requer `Authorization: Bearer ...`)
-
-- `GET /posts/` — lista com paginação  
-  - query: `published_at` (boolean), `limit` (int), `skip` (opcional, default `0`)
-- `GET /posts/{id}` — um post por id
-- `POST /posts/` — cria post
-- `PATCH /posts/{id}` — atualização parcial
-- `DELETE /posts/{id}` — remove post
+- `GET /posts/?published_at=<bool>&limit=<int>&skip=<int>` — listagem
+- `GET /posts/{id}`
+- `POST /posts/`
+- `PATCH /posts/{id}`
+- `DELETE /posts/{id}`
 
 ## Payloads
 
-### Login (`POST /auth/login`)
+**Login**
 
 ```json
-{
-  "user_id": 1
-}
+{ "user_id": 1 }
 ```
 
-### Criação (`POST /posts/`)
+**Criar post**
 
 ```json
 {
@@ -155,7 +139,7 @@ Base: `/posts` (requer `Authorization: Bearer ...`)
 }
 ```
 
-### Atualização parcial (`PATCH /posts/{id}`)
+**Atualizar post (parcial)**
 
 ```json
 {
@@ -164,16 +148,15 @@ Base: `/posts` (requer `Authorization: Bearer ...`)
 }
 ```
 
-- Use `published_at` (underscore), não `"published at"`.
-- Id numérico na URL, ex.: `PATCH /posts/1`.
+Use a query `published_at` (boolean), não `published=on`. IDs na URL numéricos: `/posts/1`.
 
-## Modelos (em `src/`)
+## Modelos Pydantic (`src/`)
 
 - `LoginRequest` / `LoginResponse` — `schemas/auth.py`, `views/auth.py`
 - `PostRequest`, `UpdatePostRequest` — `schemas/post.py`
 - `PostResponse` — `views/post.py`
 
-## Qualidade de código
+## Lint
 
 ```bash
 poetry run ruff check .
