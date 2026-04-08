@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from controllers import post
+from controllers import auth, post
 
 from contextlib import asynccontextmanager
 from database import database, metadata, engine
@@ -17,4 +17,5 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+app.include_router(auth.router)
 app.include_router(post.router)

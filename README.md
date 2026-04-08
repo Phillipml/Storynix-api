@@ -1,6 +1,6 @@
 # Storynix
 
-API backend em Python com FastAPI para gerenciamento de posts.
+API backend em Python com FastAPI para gerenciamento de posts e autenticação JWT.
 
 ## Stack
 
@@ -10,6 +10,7 @@ API backend em Python com FastAPI para gerenciamento de posts.
 - SQLAlchemy Core
 - Databases
 - Pydantic
+- PyJWT
 - Ruff
 
 ## Requisitos
@@ -43,36 +44,66 @@ poetry run uvicorn main:app --reload
 - A conexao e criada em `database.py`.
 - As tabelas sao criadas no startup da aplicacao (`lifespan` em `main.py`).
 
+## Autenticação
+
+- Login em `POST /auth/login` com JSON `{"user_id": <inteiro>}`.
+- A resposta inclui `access_token` (string JWT).
+- Todas as rotas em `/posts` exigem header `Authorization: Bearer <access_token>`.
+- No Postman: **Authorization → Bearer Token** e cole apenas o valor do token (sem aspas). Corpo do login em **Body → raw → JSON** com `Content-Type: application/json`.
+- Tokens antigos emitidos com `sub` numerico podem ser rejeitados pelo PyJWT 2.10+; em caso de duvida, faça login novamente para obter um token novo.
+
+A logica de assinatura e validacao esta em `security.py`.
+
 ## Estrutura do projeto
 
 ```text
 Storynix/
   main.py
   database.py
+  security.py
   controllers/
+    auth.py
     post.py
   services/
     post.py
   models/
     post.py
   schemas/
+    auth.py
     post.py
   views/
+    auth.py
     post.py
 ```
 
 ## Endpoints
 
-Base: `/posts`
+### Auth
 
-- `GET /posts/` lista posts com paginacao
+Base: `/auth`
+
+- `POST /auth/login` — retorna JWT (`access_token`)
+
+### Posts (protegidas)
+
+Base: `/posts` (requer `Authorization: Bearer ...`)
+
+- `GET /posts/` — lista posts com paginacao
   - query params: `published_at` (boolean), `limit` (int), `skip` (int opcional, default `0`)
-- `GET /posts/{id}` retorna um post por id
-- `POST /posts/` cria um post
-- `PATCH /posts/{id}` atualiza campos parcialmente
-- `DELETE /posts/{id}` remove um post
+- `GET /posts/{id}` — retorna um post por id
+- `POST /posts/` — cria um post
+- `PATCH /posts/{id}` — atualiza campos parcialmente
+- `DELETE /posts/{id}` — remove um post
 
 ## Payloads
+
+### Login (`POST /auth/login`)
+
+```json
+{
+  "user_id": 1
+}
+```
 
 ### Criacao (`POST /posts/`)
 
@@ -94,13 +125,14 @@ Base: `/posts`
 }
 ```
 
-Observacao importante:
+Observacoes:
 
 - Use a chave `published_at` (com underscore). Chaves como `"published at"` nao atualizam o campo.
 - A rota correta usa id numerico sem `:`. Exemplo: `PATCH /posts/1`.
 
 ## Modelos
 
+- `LoginRequest` / `LoginResponse` (`schemas/auth.py`, `views/auth.py`)
 - `PostRequest` (`schemas/post.py`): payload de entrada para criacao
 - `UpdatePostRequest` (`schemas/post.py`): payload de entrada para atualizacao parcial
 - `PostResponse` (`views/post.py`): payload de saida

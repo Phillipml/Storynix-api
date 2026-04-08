@@ -1,14 +1,15 @@
 from typing import Annotated
 
-from fastapi import Query, status, APIRouter
+from fastapi import Query, status, APIRouter, Depends
 
 from schemas.post import PostRequest, UpdatePostRequest
+from security import login_required
 from services.post import PostService
 from views.post import PostResponse
 from models.post import posts
 from database import database
 
-router = APIRouter(prefix="/posts")
+router = APIRouter(prefix="/posts", dependencies=[Depends(login_required)])
 service = PostService()
 
 
