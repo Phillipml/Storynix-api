@@ -1,69 +1,51 @@
-from datetime import UTC, datetime
 from typing import Annotated
-from fastapi import Response, Cookie, Header, status, APIRouter
 
-from schemas.post import PostRequest
+from fastapi import Query, status, APIRouter
+
+from schemas.post import PostRequest, UpdatePostRequest
+from services.post import PostService
 from views.post import PostResponse
-
+from models.post import posts
+from database import database
 
 router = APIRouter(prefix="/posts")
-fake_db = [
-    {
-        "title": "Criando aplicação com Django",
-        "date": datetime.now(UTC),
-        "published_at": True,
-    },
-    {
-        "title": "Internacionalizando uma app FastApi",
-        "date": datetime.now(UTC),
-        "published_at": True,
-    },
-    {
-        "title": "Criando aplicação com Flask",
-        "date": datetime.now(UTC),
-        "published_at": False,
-    },
-    {
-        "title": "Internacionalizando uma app Starlett",
-        "date": datetime.now(UTC),
-        "published_at": True,
-    },
-]
-
-
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=PostResponse)
-def create_post(post: PostRequest):
-    fake_db.append(post.model_dump())
-    return post
+service = PostService()
 
 
 @router.get("/", response_model=list[PostResponse])
-def read_posts(
-    response: Response,
-    published_at: bool,
+async def read_posts(
+    published: Annotated[bool, Query(alias="published_at")],
     limit: int,
     skip: int = 0,
-    ads_id: Annotated[str | None, Cookie()] = None,
-    user_agent: Annotated[str | None, Header()] = None,
 ):
-    response.set_cookie(key="user", value="user@user.com")
-    print(f"Cookie: {ads_id}")
-    print(f"User-agent: {user_agent}")
-    tail = skip + limit
-    return [post for post in fake_db[skip:tail] if post["published_at"] is published_at]
+    query = (
+        posts.select().where(posts.c.published == published).offset(skip).limit(limit)
+    )
+    return await database.fetch_all(query)
 
 
-@router.get("/{framework}", response_model=PostResponse)
-def read_framework_posts(framework: str):
-    return {
-        "posts": [
-            {
-                "title": f"Criando aplicação com {framework}",
-                "published_at": datetime.now(UTC),
-            },
-            {
-                "title": f"Internacionalizando uma app {framework}",
-                "published_at": datetime.now(UTC),
-            },
-        ]
-    }
+@router.get("/{id}", response_model=PostResponse)
+async def read_post(id: int):
+    return await service.read(id)
+
+
+@router.post("/", status_code=status.HTTP_201_CREATED, response_model=PostResponse)
+async def create_post(post: PostRequest):
+    query = posts.insert().values(
+        title=post.title,
+        content=post.content,
+        published_at=post.published_at,
+        published=post.published,
+    )
+    last_id = await database.execute(query)
+    return {**post.model_dump(), "id": last_id}
+
+
+@router.patch("/{id}", response_model=PostResponse)
+async def update_post(id: int, post: UpdatePostRequest):
+    return await service.update(id=id, post=post)
+
+
+@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
+async def delete(id: int):
+    return await service.delete(id)
