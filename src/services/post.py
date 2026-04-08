@@ -30,7 +30,7 @@ class PostService:
         return await self.__get_by_id(id)
 
     async def create(self, post: PostRequest) -> int:
-        query = posts.insert().value(
+        query = posts.insert().values(
             title=post.title,
             content=post.content,
             published_at=post.published_at,

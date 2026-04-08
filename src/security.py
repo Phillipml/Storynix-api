@@ -13,7 +13,6 @@ ALGORITHM = "HS256"
 
 class AccessToken(BaseModel):
     iss: str
-    # RFC 7519: "sub" is a string; PyJWT 2.10+ rejects non-string subject on decode.
     sub: str
     aud: str
     exp: float
@@ -32,7 +31,7 @@ def sign_jwt(user_id: int) -> JWTToken:
         "iss": "curso-fastapi.com.br",
         "sub": str(user_id),
         "aud": "curso-fastapi",
-        "exp": now + (60 * 30),  # 30 minutes
+        "exp": now + (60 * 30),
         "iat": now,
         "nbf": now,
         "jti": uuid4().hex,
