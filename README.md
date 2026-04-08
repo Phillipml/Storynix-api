@@ -9,26 +9,43 @@ API backend em Python com FastAPI para gerenciamento de posts e autenticação J
 - Uvicorn
 - SQLAlchemy Core
 - Databases
-- Pydantic
+- Pydantic / Pydantic Settings
 - PyJWT
 - Ruff
+- Pytest (testes de integração)
 
 ## Requisitos
 
 - Python 3.13+
 - Poetry 2+
 
+## Configuração
+
+1. Copie o exemplo de variáveis de ambiente (na raiz do repositório):
+
+```bash
+cp .env.example .env
+```
+
+2. Ajuste `.env` se precisar. Variáveis usadas pela app:
+
+- `DATABASE_URL` — URL do banco (padrão no código: `sqlite:///./blog.db` se não estiver definida).
+- `ENVIRONMENT` — `local` usa `check_same_thread=False` no SQLite; `production` não.
+
+O `Settings` em `src/config.py` carrega `.env` da **raiz do projeto** e de **`src/`** (o que existir). Assim você pode rodar o Uvicorn a partir de `src/` ou da raiz sem perder as variáveis.
+
 ## Como executar localmente
 
-1. Instale as dependencias:
+1. Instale as dependências:
 
 ```bash
 poetry install
 ```
 
-2. Suba a API com recarregamento automatico:
+2. Entre em `src/` e suba a API (imports relativos ao pacote da app):
 
 ```bash
+cd src
 poetry run uvicorn main:app --reload
 ```
 
@@ -38,42 +55,64 @@ poetry run uvicorn main:app --reload
 - Swagger: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 - ReDoc: [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
 
+O arquivo SQLite `./blog.db` é criado no **diretório de trabalho atual** do processo (em geral `src/` se você subiu o servidor de lá).
+
 ## Banco de dados
 
-- Banco local SQLite em `blog.db`.
-- A conexao e criada em `database.py`.
-- As tabelas sao criadas no startup da aplicacao (`lifespan` em `main.py`).
+- SQLite por padrão (`DATABASE_URL` tipo `sqlite:///./blog.db`).
+- Conexão e metadata em `src/database.py`.
+- Tabelas criadas no startup (`lifespan` em `src/main.py`).
+
+## Testes
+
+Na **raiz** do repositório:
+
+```bash
+poetry run pytest
+```
+
+O `pyproject.toml` define `pythonpath = ["src"]` para os testes encontrarem os módulos da app. O `tests/conftest.py` configura `DATABASE_URL` para um SQLite de teste.
 
 ## Autenticação
 
-- Login em `POST /auth/login` com JSON `{"user_id": <inteiro>}`.
-- A resposta inclui `access_token` (string JWT).
-- Todas as rotas em `/posts` exigem header `Authorization: Bearer <access_token>`.
-- No Postman: **Authorization → Bearer Token** e cole apenas o valor do token (sem aspas). Corpo do login em **Body → raw → JSON** com `Content-Type: application/json`.
-- Tokens antigos emitidos com `sub` numerico podem ser rejeitados pelo PyJWT 2.10+; em caso de duvida, faça login novamente para obter um token novo.
+- Login: `POST /auth/login` com JSON `{"user_id": <inteiro>}`.
+- Resposta com `access_token` (JWT).
+- Rotas em `/posts` exigem `Authorization: Bearer <access_token>`.
+- No Postman: **Authorization → Bearer Token** com só o JWT (sem aspas). Login: **Body → raw → JSON** e `Content-Type: application/json`.
+- O claim `sub` do JWT é string (compatível com PyJWT 2.10+); faça login de novo se um token antigo falhar.
 
-A logica de assinatura e validacao esta em `security.py`.
+Lógica JWT em `src/security.py`.
 
 ## Estrutura do projeto
 
 ```text
 Storynix/
-  main.py
-  database.py
-  security.py
-  controllers/
-    auth.py
-    post.py
-  services/
-    post.py
-  models/
-    post.py
-  schemas/
-    auth.py
-    post.py
-  views/
-    auth.py
-    post.py
+  pyproject.toml
+  .env.example
+  tests/
+    conftest.py
+    integration/
+      controllers/
+        auth/
+        post/
+  src/
+    main.py
+    config.py
+    database.py
+    security.py
+    controllers/
+      auth.py
+      post.py
+    services/
+      post.py
+    models/
+      post.py
+    schemas/
+      auth.py
+      post.py
+    views/
+      auth.py
+      post.py
 ```
 
 ## Endpoints
@@ -88,12 +127,12 @@ Base: `/auth`
 
 Base: `/posts` (requer `Authorization: Bearer ...`)
 
-- `GET /posts/` — lista posts com paginacao
-  - query params: `published_at` (boolean), `limit` (int), `skip` (int opcional, default `0`)
-- `GET /posts/{id}` — retorna um post por id
-- `POST /posts/` — cria um post
-- `PATCH /posts/{id}` — atualiza campos parcialmente
-- `DELETE /posts/{id}` — remove um post
+- `GET /posts/` — lista com paginação  
+  - query: `published_at` (boolean), `limit` (int), `skip` (opcional, default `0`)
+- `GET /posts/{id}` — um post por id
+- `POST /posts/` — cria post
+- `PATCH /posts/{id}` — atualização parcial
+- `DELETE /posts/{id}` — remove post
 
 ## Payloads
 
@@ -105,7 +144,7 @@ Base: `/posts` (requer `Authorization: Bearer ...`)
 }
 ```
 
-### Criacao (`POST /posts/`)
+### Criação (`POST /posts/`)
 
 ```json
 {
@@ -116,7 +155,7 @@ Base: `/posts` (requer `Authorization: Bearer ...`)
 }
 ```
 
-### Atualizacao parcial (`PATCH /posts/{id}`)
+### Atualização parcial (`PATCH /posts/{id}`)
 
 ```json
 {
@@ -125,21 +164,16 @@ Base: `/posts` (requer `Authorization: Bearer ...`)
 }
 ```
 
-Observacoes:
+- Use `published_at` (underscore), não `"published at"`.
+- Id numérico na URL, ex.: `PATCH /posts/1`.
 
-- Use a chave `published_at` (com underscore). Chaves como `"published at"` nao atualizam o campo.
-- A rota correta usa id numerico sem `:`. Exemplo: `PATCH /posts/1`.
+## Modelos (em `src/`)
 
-## Modelos
+- `LoginRequest` / `LoginResponse` — `schemas/auth.py`, `views/auth.py`
+- `PostRequest`, `UpdatePostRequest` — `schemas/post.py`
+- `PostResponse` — `views/post.py`
 
-- `LoginRequest` / `LoginResponse` (`schemas/auth.py`, `views/auth.py`)
-- `PostRequest` (`schemas/post.py`): payload de entrada para criacao
-- `UpdatePostRequest` (`schemas/post.py`): payload de entrada para atualizacao parcial
-- `PostResponse` (`views/post.py`): payload de saida
-
-## Qualidade de codigo
-
-Rodar lint com Ruff:
+## Qualidade de código
 
 ```bash
 poetry run ruff check .
