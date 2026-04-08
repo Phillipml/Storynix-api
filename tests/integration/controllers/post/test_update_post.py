@@ -5,8 +5,8 @@ from httpx import AsyncClient
 
 @pytest_asyncio.fixture(autouse=True)
 async def populate_posts(db):
-    from schemas.post import PostRequest
-    from services.post import PostService
+    from src.schemas.post import PostRequest
+    from src.services.post import PostService
 
     service = PostService()
     await service.create(

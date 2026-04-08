@@ -1,14 +1,14 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
-from controllers import auth, post
-
-from contextlib import asynccontextmanager
-from database import database, metadata, engine
+from src.controllers import auth, post
+from src.database import database, engine, metadata
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    from models.post import posts
+    __import__("src.models.post")
 
     await database.connect()
     metadata.create_all(engine)
